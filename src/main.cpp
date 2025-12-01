@@ -152,6 +152,7 @@ void loop()
     M5.Lcd.clear();
     
     printf("Buffer cleared. New measurement started from t=0.\n");
+    sensor.resetFifo();
   }
   
   uint16_t ir, red;
@@ -161,7 +162,7 @@ void loop()
   {
     val_red[px] = red;
     val_ir[px] = ir;
-    
+
     // リングバッファにデータを保存（基準時刻からの経過時間を記録）
     dataBuffer[bufferIndex].red = red;
     dataBuffer[bufferIndex].ir = ir;
