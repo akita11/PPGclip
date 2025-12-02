@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <M5unified.h>
 #include <Wire.h>
+#include <math.h>
 
 #include "MAX30100.h"
 
@@ -23,6 +24,195 @@
 // Instantiate a MAX30100 sensor class
 MAX30100 sensor;
 
+// --- フィルタ設定パラメータ (filterESP32.cから移植) ---
+const int SAMPLE_RATE = 100;       // 100Hz
+const int WINDOW_SIZE = 150;       // 1.5秒間のウィンドウ (相関・標準偏差計算用)
+const int FILTER_ORDER = 4;        // フィルタ次数 + 1 (係数の数) -> 4次フィルタなら係数は5個
+
+// --- フィルタ係数 (Pythonで計算した値をここに設定) ---
+// Bandpass Filter (0.5 - 5.0 Hz), fs=100Hz, order=4
+const float B_BPF[] = { 0.0006760592, 0.0000000000, -0.0013521185, 0.0000000000, 0.0006760592 };
+const float A_BPF[] = { 1.0000000000, -3.6186414773, 4.9356346257, -3.0031317094, 0.6865261313 };
+
+// Lowpass Filter (0.5 Hz) for Baseline, fs=100Hz, order=4
+const float B_LPF[] = { 0.0000000570, 0.0000002281, 0.0000003422, 0.0000002281, 0.0000000570 };
+const float A_LPF[] = { 1.0000000000, -3.9370720516, 5.8118005697, -3.8119614450, 0.9372338394 };
+
+// --- PPGプロセッサクラス (filterESP32.cから移植) ---
+class PPGProcessor {
+private:
+    // フィルタの状態変数 (直近の入出力を保持)
+    float x_red[FILTER_ORDER + 1] = {0};
+    float y_red[FILTER_ORDER + 1] = {0};
+    float x_ir[FILTER_ORDER + 1] = {0};
+    float y_ir[FILTER_ORDER + 1] = {0};
+    
+    // ベースライン用フィルタ状態変数
+    float x_base[FILTER_ORDER + 1] = {0};
+    float y_base[FILTER_ORDER + 1] = {0};
+
+    // リングバッファ (判定計算用)
+    float bufFiltRed[WINDOW_SIZE];
+    float bufFiltIR[WINDOW_SIZE];
+    float bufRawIR[WINDOW_SIZE]; // 接触判定用
+    int bufIndex = 0;
+    bool bufferFilled = false;
+
+    // 前回のベースライン値 (傾き計算用)
+    float prevBaseline = 0;
+    
+    // IIRフィルタ計算関数
+    float applyIIR(float input, float* x, float* y, const float* b, const float* a) {
+        // シフト処理
+        for (int i = FILTER_ORDER; i > 0; i--) {
+            x[i] = x[i - 1];
+            y[i] = y[i - 1];
+        }
+        x[0] = input;
+
+        // 差分方程式: y[0] = (b[0]x[0] + ... + b[N]x[N]) - (a[1]y[1] + ... + a[N]y[N])
+        // a[0]は通常1.0なので省略
+        float val = 0;
+        for (int i = 0; i <= FILTER_ORDER; i++) {
+            val += b[i] * x[i];
+        }
+        for (int i = 1; i <= FILTER_ORDER; i++) {
+            val -= a[i] * y[i];
+        }
+        y[0] = val;
+        return val;
+    }
+
+public:
+    struct PPGResult {
+        float filtRed;
+        float filtIR;
+        int qualityFlag; // 1: Valid, 0: Invalid
+    };
+
+    PPGProcessor() {
+        // バッファ初期化
+        for(int i=0; i<WINDOW_SIZE; i++) {
+            bufFiltRed[i] = 0;
+            bufFiltIR[i] = 0;
+            bufRawIR[i] = 0;
+        }
+    }
+
+    // 毎サンプリング呼び出す関数
+    PPGResult update(float rawRed, float rawIR) {
+        PPGResult res;
+
+        // 1. バンドパスフィルタ適用 (脈波抽出)
+        res.filtRed = applyIIR(rawRed, x_red, y_red, B_BPF, A_BPF);
+        res.filtIR = applyIIR(rawIR, x_ir, y_ir, B_BPF, A_BPF);
+
+        // 2. ローパスフィルタ適用 (ベースライン抽出 for IR)
+        float baselineIR = applyIIR(rawIR, x_base, y_base, B_LPF, A_LPF);
+
+        // 3. バッファにデータを追加 (リングバッファ)
+        bufFiltRed[bufIndex] = res.filtRed;
+        bufFiltIR[bufIndex] = res.filtIR;
+        bufRawIR[bufIndex] = rawIR;
+
+        // 4. ベースライン変動チェック (傾き)
+        float slope = abs(baselineIR - prevBaseline); // 簡易微分
+        prevBaseline = baselineIR;
+
+        // --- 品質判定ロジック ---
+        // まだバッファが埋まっていない場合は判定しない(0)
+        if (!bufferFilled && bufIndex < WINDOW_SIZE - 1) {
+            res.qualityFlag = 0;
+        } else {
+            // リングバッファが一周したらフラグを立てる
+            if (bufIndex == WINDOW_SIZE - 1) bufferFilled = true;
+
+            // 統計計算 (平均、標準偏差、共分散)
+            float sumRed = 0, sumIR = 0;
+            float sumRedSq = 0, sumIRSq = 0;
+            float sumCross = 0;
+            float minRawIR = 1000000; // Rawデータの最小値チェック用
+
+            for (int i = 0; i < WINDOW_SIZE; i++) {
+                float r = bufFiltRed[i];
+                float ir = bufFiltIR[i];
+                float raw = bufRawIR[i];
+
+                sumRed += r;
+                sumIR += ir;
+                sumRedSq += r * r;
+                sumIRSq += ir * ir;
+                sumCross += r * ir;
+                if (raw < minRawIR) minRawIR = raw;
+            }
+
+            float meanRed = sumRed / WINDOW_SIZE;
+            float meanIR = sumIR / WINDOW_SIZE;
+            
+            // 分散・共分散
+            // Var(X) = E[X^2] - (E[X])^2
+            float varRed = (sumRedSq / WINDOW_SIZE) - (meanRed * meanRed);
+            float varIR = (sumIRSq / WINDOW_SIZE) - (meanIR * meanIR);
+            float cov = (sumCross / WINDOW_SIZE) - (meanRed * meanIR);
+            
+            float stdRed = sqrt(varRed > 0 ? varRed : 0);
+            float stdIR = sqrt(varIR > 0 ? varIR : 0);
+
+            // 相関係数
+            float correlation = 0;
+            if (stdRed > 0 && stdIR > 0) {
+                correlation = cov / (stdRed * stdIR);
+            }
+
+            // 判定条件 (Pythonコード準拠)
+            // 1. 相関 > 0.8
+            // 2. 振幅(stdIR) > 5.0
+            // 3. Raw値(接触) > 10000 (ここではバッファ内の最小値で判定)
+            // 4. ベースライン傾き < 10.0 (現在の傾きを使用)
+            
+            bool isCorrOK = correlation > 0.8;
+            bool isAmpOK = stdIR > 5.0;
+            bool isContactOK = minRawIR > 10000;
+            bool isStable = slope < 10.0; // 閾値はサンプリングレートやゲインによるので要調整
+
+            if (isCorrOK && isAmpOK && isContactOK && isStable) {
+                res.qualityFlag = 1;
+            } else {
+                res.qualityFlag = 0;
+            }
+        }
+
+        // インデックス更新
+        bufIndex++;
+        if (bufIndex >= WINDOW_SIZE) bufIndex = 0;
+
+        return res;
+    }
+    
+    // リセット関数 (ボタン押下時用)
+    void reset() {
+        for (int i = 0; i <= FILTER_ORDER; i++) {
+            x_red[i] = 0;
+            y_red[i] = 0;
+            x_ir[i] = 0;
+            y_ir[i] = 0;
+            x_base[i] = 0;
+            y_base[i] = 0;
+        }
+        for(int i=0; i<WINDOW_SIZE; i++) {
+            bufFiltRed[i] = 0;
+            bufFiltIR[i] = 0;
+            bufRawIR[i] = 0;
+        }
+        bufIndex = 0;
+        bufferFilled = false;
+        prevBaseline = 0;
+    }
+};
+
+// PPGプロセッサのインスタンス
+PPGProcessor ppgProcessor;
+
 // display: 128 x 128 (M5Stack ATOMS3)
 #define X 128
 #define Y 128
@@ -36,14 +226,17 @@ uint8_t px = 0;
 // メモリ制約のため、実際のサンプリングレートに合わせて6000サンプルに設定
 #define BUFFER_SIZE 6000
 struct DataSample {
-  uint16_t red;
-  uint16_t ir;
-  uint16_t timestamp; // タイムスタンプ（ms、65535ms = 65秒まで対応可能）
+  uint16_t red;         // 生データ (Red)
+  uint16_t ir;          // 生データ (IR)
+  float filtRed;        // フィルタ後のデータ (Red)
+  float filtIR;         // フィルタ後のデータ (IR)
+  uint16_t timestamp;   // タイムスタンプ（ms、65535ms = 65秒まで対応可能）
 };
 DataSample dataBuffer[BUFFER_SIZE];
 uint32_t bufferIndex = 0;
 uint32_t sampleCount = 0; // 保存されたサンプル数
 uint32_t timeBase = 0; // タイムスタンプの基準時刻（起動時または前回のUART転送終了時）
+int currentQualityFlag = 0; // 現在の品質フラグ (グラフ描画用)
 
 #define Navg_base 100
 #define Navg_data 10
@@ -94,10 +287,13 @@ void setup()
   {
     dataBuffer[i].red = 0;
     dataBuffer[i].ir = 0;
+    dataBuffer[i].filtRed = 0;
+    dataBuffer[i].filtIR = 0;
     dataBuffer[i].timestamp = 0;
   }
   bufferIndex = 0;
   sampleCount = 0;
+  currentQualityFlag = 0;
   
   // 基準時刻を設定（起動時をt=0とする）
   timeBase = millis();
@@ -117,11 +313,11 @@ void loop()
     uint32_t maxCount;
     if (sampleCount < BUFFER_SIZE) maxCount = sampleCount;
     else maxCount = BUFFER_SIZE;
-    printf("# Index,Timestamp,Red,IR (%lu)\n", maxCount);
+    printf("# Index,Timestamp,Red,IR,FiltRed,FiltIR (%lu)\n", maxCount);
 
     for (uint32_t i = 0; i < maxCount; i++)
     {
-      printf("%lu,%u,%u,%u\n", i, dataBuffer[i].timestamp, dataBuffer[i].red, dataBuffer[i].ir);
+      printf("%lu,%u,%u,%u,%.2f,%.2f\n", i, dataBuffer[i].timestamp, dataBuffer[i].red, dataBuffer[i].ir, dataBuffer[i].filtRed, dataBuffer[i].filtIR);
     }
     
     // データ転送終了後、基準時刻をリセットしてバッファをクリア
@@ -147,6 +343,10 @@ void loop()
     periodPN = 0;
     periodNP = 0;
     fValid = 0;
+    currentQualityFlag = 0;
+    
+    // PPGプロセッサをリセット
+    ppgProcessor.reset();
     
     // 画面をクリアして新しい計測を開始
     M5.Lcd.clear();
@@ -163,9 +363,15 @@ void loop()
     val_red[px] = red;
     val_ir[px] = ir;
 
-    // リングバッファにデータを保存（基準時刻からの経過時間を記録）
+    // PPGプロセッサでフィルタ処理と品質判定を実行
+    PPGProcessor::PPGResult ppgResult = ppgProcessor.update((float)red, (float)ir);
+    currentQualityFlag = ppgResult.qualityFlag;
+
+    // リングバッファにデータを保存（生データとフィルタ後のデータの両方）
     dataBuffer[bufferIndex].red = red;
     dataBuffer[bufferIndex].ir = ir;
+    dataBuffer[bufferIndex].filtRed = ppgResult.filtRed;
+    dataBuffer[bufferIndex].filtIR = ppgResult.filtIR;
     uint32_t elapsed = millis() - timeBase;
     dataBuffer[bufferIndex].timestamp = (elapsed > 65535) ? 65535 : (uint16_t)elapsed;
     bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
@@ -248,7 +454,7 @@ void loop()
         if (y_ir < 0)
           y_ir = 0;
         M5.Lcd.drawFastVLine(x, 0, Y, BLACK);
-        if (fValid == 1)
+        if (currentQualityFlag == 1)
           M5.Lcd.drawPixel(x, Y - 1 - y_red, WHITE);
         else
           M5.Lcd.drawPixel(x, Y - 1 - y_red, RED);
