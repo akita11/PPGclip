@@ -171,15 +171,16 @@ public:
             // 4. ベースライン傾き < 10.0 (現在の傾きを使用)
             
             bool isCorrOK = correlation > 0.8;
-            bool isAmpOK = stdIR > 5.0;
+            bool isAmpOK = stdIR > 1.3;
             bool isContactOK = minRawIR > 10000;
             bool isStable = slope < 10.0; // 閾値はサンプリングレートやゲインによるので要調整
-
-            if (isCorrOK && isAmpOK && isContactOK && isStable) {
+//            if (isCorrOK && isAmpOK && isContactOK && isStable) {
+            if (isCorrOK && isAmpOK && isContactOK) {
                 res.qualityFlag = 1;
             } else {
                 res.qualityFlag = 0;
             }
+//            printf("%d : %d %d (%.2f) %d %d(%.2f / %.2f %.2f)\n", res.qualityFlag, isCorrOK, isAmpOK, stdIR, isContactOK, isStable, slope, baselineIR, prevBaseline);
         }
 
         // インデックス更新
@@ -377,7 +378,8 @@ void loop()
     bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
     if (sampleCount < BUFFER_SIZE)
       sampleCount++;
-    uint16_t px0;
+/*
+  uint16_t px0;
     sum_base = 0;
     px0 = (X + px - Navg_base - 1) % X;
     for (uint8_t i = 0; i < Navg_base; i++)
@@ -414,6 +416,7 @@ void loop()
     //    printf(">red:%d\n", val_red[px]);
     //    printf(">max:%d\n", max_red);
     //    printf(">min:%d\n", min_red);
+    */
     f++;
     if (f == 4) // draw every 4 samples
     {
@@ -455,10 +458,9 @@ void loop()
           y_ir = 0;
         M5.Lcd.drawFastVLine(x, 0, Y, BLACK);
         if (currentQualityFlag == 1)
-          M5.Lcd.drawPixel(x, Y - 1 - y_red, WHITE);
+          M5.Lcd.drawPixel(x, Y - 1 - y_red, GREEN);
         else
           M5.Lcd.drawPixel(x, Y - 1 - y_red, RED);
-        //      M5.Lcd.drawPixel(x, Y - 1 - y_ir, GREEN);
         dx = (dx + 1) % X;
       }
     }
