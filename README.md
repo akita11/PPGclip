@@ -1,8 +1,8 @@
 # PPG Clip
 
-<img src="https://github.com/akita11/PPGclip/blob/main/PPGclip1.jpg" width="240px">
+<img src="https://github.com/akita11/PPGclip/blob/main/images/PPGclip1.jpg" width="240px">
 
-<img src="https://github.com/akita11/PPGclip/blob/main/PPGclip2.jpg" width="240px">
+<img src="https://github.com/akita11/PPGclip/blob/main/images/PPGclip2.jpg" width="240px">
 
 [M5Stack社の心拍センサユニット](https://www.switch-science.com/products/5695)を利用した、測定精度・安定度の高い透過型の光学脈波(PPG)計測器です。
 マイコン部はM5Stack社のATOMシリーズを取り付けらて一体化できます。
@@ -15,7 +15,7 @@
 - 工具（1.5mm六角レンチ、小プラスドライバ）
 
 
-<img src="https://github.com/akita11/PPGclip/blob/main/PPGclip_parts.jpg" width="240px">
+<img src="https://github.com/akita11/PPGclip/blob/main/images/PPGclip_parts.jpg" width="240px">
 
 
 # 組み立て
@@ -30,23 +30,23 @@
 1. Fig7のように、ばね(10)を筐体(9)にはめ、その後、Fig8のように、ばね(10)を反対側の筐体(6)にはめつつ、2つの筐体を押し込んではめこみます。
 1. ATOMシリーズにプログラムを書き込み、ボード(1)が動作すると、Fig9のように上下両側のLEDが点灯します。
 
-Fig1.:<img src="https://github.com/akita11/PPGclip/blob/main/build1.jpg" width="240px">
+Fig1.:<img src="https://github.com/akita11/PPGclip/blob/main/images/1.jpg" width="240px">
 
-Fig2:<img src="https://github.com/akita11/PPGclip/blob/main/build2.jpg" width="240px">
+Fig2:<img src="https://github.com/akita11/PPGclip/blob/main/images/2.jpg" width="240px">
 
-Fig3:<img src="https://github.com/akita11/PPGclip/blob/main/build3.jpg" width="240px">
+Fig3:<img src="https://github.com/akita11/PPGclip/blob/main/images/3.jpg" width="240px">
 
-Fig4:<img src="https://github.com/akita11/PPGclip/blob/main/build4.jpg" width="240px">
+Fig4:<img src="https://github.com/akita11/PPGclip/blob/main/images/4.jpg" width="240px">
 
-Fig5:<img src="https://github.com/akita11/PPGclip/blob/main/build5.jpg" width="240px">
+Fig5:<img src="https://github.com/akita11/PPGclip/blob/main/images/5.jpg" width="240px">
 
-Fig6:<img src="https://github.com/akita11/PPGclip/blob/main/build6.jpg" width="240px">
+Fig6:<img src="https://github.com/akita11/PPGclip/blob/main/images/6.jpg" width="240px">
 
-Fig7:<img src="https://github.com/akita11/PPGclip/blob/main/build7.jpg" width="240px">
+Fig7:<img src="https://github.com/akita11/PPGclip/blob/main/images/7.jpg" width="240px">
 
-Fig8:<img src="https://github.com/akita11/PPGclip/blob/main/build8.jpg" width="240px">
+Fig8:<img src="https://github.com/akita11/PPGclip/blob/main/images/8.jpg" width="240px">
 
-Fig9:<img src="https://github.com/akita11/PPGclip/blob/main/build9.jpg" width="240px">
+Fig9:<img src="https://github.com/akita11/PPGclip/blob/main/images/9.jpg" width="240px">
 
 
 # ソフトウエア
