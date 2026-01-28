@@ -8,6 +8,11 @@
 マイコン部はM5Stack社のATOMシリーズを取り付けらて一体化できます。
 部品セットからこれらを組み立てることができます。
 
+<img src="https://github.com/akita11/PPGclip/blob/main/images/PPGclip3.jpg" width="240px">
+
+ATOMシリーズを使わずに、直接Groveケーブルを接続して、他のM5Stackシリーズ等のマイコンで使用することもできます。
+
+
 ## 必要なもの
 - 部品セット（筐体（4点）、LED基板、コネクタ基板、4p/2mmピンソケット×2、ケーブル（色が写真のものと異なる場合があります）、M2.3×8mmタッピングねじ、M2×4mmねじ、押しバネ0.7×7.5×23）
 - [M5Stack社の心拍センサユニット](https://www.switch-science.com/products/5695)
