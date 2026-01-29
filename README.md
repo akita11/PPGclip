@@ -35,23 +35,23 @@ ATOMシリーズを使わずに、直接Groveケーブルを接続して、他�
 1. Fig7のように、ばね(10)を筐体(9)にはめ、その後、Fig8のように、ばね(10)を反対側の筐体(6)にはめつつ、2つの筐体を押し込んではめこみます。
 1. ATOMシリーズにプログラムを書き込み、ボード(1)が動作すると、Fig9のように上下両側のLEDが点灯します。
 
-Fig1.:<img src="https://github.com/akita11/PPGclip/blob/main/images/1.jpg" width="240px">
+Fig1.:<img src="https://github.com/akita11/PPGclip/blob/main/images/build1.jpg" width="240px">
 
-Fig2:<img src="https://github.com/akita11/PPGclip/blob/main/images/2.jpg" width="240px">
+Fig2:<img src="https://github.com/akita11/PPGclip/blob/main/images/build2.jpg" width="240px">
 
-Fig3:<img src="https://github.com/akita11/PPGclip/blob/main/images/3.jpg" width="240px">
+Fig3:<img src="https://github.com/akita11/PPGclip/blob/main/images/build3.jpg" width="240px">
 
-Fig4:<img src="https://github.com/akita11/PPGclip/blob/main/images/4.jpg" width="240px">
+Fig4:<img src="https://github.com/akita11/PPGclip/blob/main/images/build4.jpg" width="240px">
 
-Fig5:<img src="https://github.com/akita11/PPGclip/blob/main/images/5.jpg" width="240px">
+Fig5:<img src="https://github.com/akita11/PPGclip/blob/main/images/build5.jpg" width="240px">
 
-Fig6:<img src="https://github.com/akita11/PPGclip/blob/main/images/6.jpg" width="240px">
+Fig6:<img src="https://github.com/akita11/PPGclip/blob/main/images/build6.jpg" width="240px">
 
-Fig7:<img src="https://github.com/akita11/PPGclip/blob/main/images/7.jpg" width="240px">
+Fig7:<img src="https://github.com/akita11/PPGclip/blob/main/images/build7.jpg" width="240px">
 
-Fig8:<img src="https://github.com/akita11/PPGclip/blob/main/images/8.jpg" width="240px">
+Fig8:<img src="https://github.com/akita11/PPGclip/blob/main/images/build8.jpg" width="240px">
 
-Fig9:<img src="https://github.com/akita11/PPGclip/blob/main/images/9.jpg" width="240px">
+Fig9:<img src="https://github.com/akita11/PPGclip/blob/main/images/build9.jpg" width="240px">
 
 
 # ソフトウエア
